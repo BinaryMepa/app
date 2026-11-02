@@ -28,7 +28,8 @@ This project was made as a final project for **Deep Learning School (DLS)**.
 ## ✨ Features
 
 - 🧠 **Custom U-Net** with 5 encoder/decoder levels (64 → 2048 channels)
-- 🖼️ **Image upload** in JPG, PNG or TIFF format
+- 🖼️ **Image upload** in JPG, PNG or TIFF format, including grayscale, transparent and 16-bit images
+- 📐 **Any image size:** small images are upscaled, large ones are downscaled, and the mask keeps the original aspect ratio
 - 🎨 **Color-coded mask** displayed side by side with the original image
 - 🗺️ **Class legend** in the sidebar
 - ⚡ **Cached model loading**, so the weights load only once
@@ -45,6 +46,7 @@ app/
 │   ├── config.py            # Paths, image size, normalization settings
 │   ├── classes.py           # The 19 classes: names and colors
 │   ├── model.py             # U-Net architecture
+│   ├── image_utils.py       # Safe image loading (size limits, format conversion)
 │   ├── inference.py         # Model loading, preprocessing, prediction
 │   └── visualization.py     # Turning masks into color images
 ├── Untitled1.ipynb          # Training / experiments notebook
@@ -111,8 +113,8 @@ from src.visualization import colorize_mask
 model = load_model(MODEL_PATH)
 image = Image.open("example.png")
 
-mask = predict_mask(model, image)      # (512, 512) array of class ids
-colored = colorize_mask(mask)          # (512, 512, 3) RGB image
+mask = predict_mask(model, image)      # (H, W) array of class ids, same size as the image
+colored = colorize_mask(mask)          # (H, W, 3) RGB image
 Image.fromarray(colored).save("mask.png")
 ```
 
@@ -127,7 +129,7 @@ Image.fromarray(colored).save("mask.png")
 | Decoder | 5 `Up` blocks with transposed convolutions: 2048 → 1024 → 512 → 256 → 128 → 64 |
 | Output | 1×1 convolution to 19 class logits |
 | Input | RGB image resized to **512 × 512**, normalized with ImageNet mean/std |
-| Output mask | 512 × 512 array of class ids (argmax over logits) |
+| Output mask | Class ids (argmax over logits), resized back to the image's aspect ratio |
 | Framework | PyTorch |
 
 ---
@@ -162,8 +164,10 @@ Class names and colors are defined in one place: [`src/classes.py`](src/classes.
 
 ## ⚠️ Limitations
 
-The training images did not contain enough information for the model to learn well.
-As a result, the current **Dice score is about 0.08**, so the predicted masks should be treated as a **proof of concept**, not as production-quality results.
+- **Image size:** images up to about **7000 × 7000** pixels are accepted. Images larger than 2048 px are downscaled before processing. Images smaller than 512 px work, but are upscaled, so predictions may be less accurate.
+
+- **Accuracy:** the training images did not contain enough information for the model to learn well.
+  As a result, the current **Dice score is about 0.08**, so the predicted masks should be treated as a **proof of concept**, not as production-quality results.
 
 ---
 
@@ -172,7 +176,7 @@ As a result, the current **Dice score is about 0.08**, so the predicted masks sh
 - [ ] Improve the training dataset (more images, better masks)
 - [ ] Improve the architecture (for example, a pretrained encoder)
 - [ ] Add evaluation metrics (Dice, IoU) per class
-- [ ] Resize the predicted mask back to the original image size
+- [x] Resize the predicted mask back to the original image size
 - [ ] Deploy the app to Streamlit Community Cloud
 
 ---
